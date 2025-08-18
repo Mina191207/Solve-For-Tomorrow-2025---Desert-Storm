@@ -23,19 +23,19 @@ class _AmslerGridTestScreenState extends State<AmslerGridTestScreen> {
   bool _testCompleted = false;
   bool _showQuestionnaire = false;
   DateTime? _testStartTime;
-  List<TestResult> _testResults = [];
+  final List<TestResult> _testResults = [];
   final TestSessionManager _sessionManager = TestSessionManager();
   final CameraService _cameraService = CameraService();
   
   String _currentEye = 'right';
-  List<Offset> _distortionPoints = [];
-  List<Offset> _blurPoints = [];
-  List<Offset> _missingPoints = [];
+  final List<Offset> _distortionPoints = [];
+  final List<Offset> _blurPoints = [];
+  final List<Offset> _missingPoints = [];
   
   Timer? _eyeTimer;
   int _remainingTime = 30;
   
-  Map<String, dynamic> _questionnaireResponses = {};
+  final Map<String, dynamic> _questionnaireResponses = {};
   
   @override
   void initState() {

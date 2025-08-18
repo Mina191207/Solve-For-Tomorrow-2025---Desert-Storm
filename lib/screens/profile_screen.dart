@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'auth_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hồ sơ'),
@@ -29,17 +32,17 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'John Doe',
-                    style: TextStyle(
+                  Text(
+                    user?.displayName ?? 'Chưa có tên hiển thị',
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'john.doe@email.com',
-                    style: TextStyle(
+                  Text(
+                    user?.email ?? 'Chưa có email',
+                    style: const TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
                     ),
@@ -165,11 +168,14 @@ class ProfileScreen extends StatelessWidget {
             child: const Text('Hủy'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Đăng xuất thành công')),
               );
+              Navigator.of(context)
+                  .pushReplacement(MaterialPageRoute(builder: (_) => AuthScreen()));
             },
             child: const Text('Đăng xuất'),
           ),

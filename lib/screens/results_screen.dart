@@ -4,6 +4,12 @@ import '../models/test_session.dart';
 import '../services/ml_service.dart';
 import '../services/test_data_service.dart';
 import '../services/camera_service.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:archive/archive_io.dart';
+import 'package:path/path.dart' as path;
+import 'package:http_parser/http_parser.dart';
 
 class ResultsScreen extends StatefulWidget {
   final String testType;
@@ -26,13 +32,125 @@ class _ResultsScreenState extends State<ResultsScreen> {
   VisionAnalysisResult? _analysisResult;
   final MLService _mlService = MLService();
   final TestSessionManager _sessionManager = TestSessionManager();
+  final SessionStorage _sessionStorage = SessionStorage();
   final TestDataService _testDataService = TestDataService();
   final CameraService _cameraService = CameraService();
 
   @override
-  void initState() {
+  void initState(){
     super.initState();
+    // final stats = TestDataService().getTestStatistics();
+    // final jsonString = const JsonEncoder.withIndent('  ').convert(stats);
+    // final file = File('test_statistics.json');
+    // file.writeAsString(jsonString);
+    //
+    // print('✅ Statistics saved at: ${file.path}');
+    // saveStatistics(stats);
+    // final loaded = loadStatistics();
+    // print("✅ Loaded: $loaded");
     _analyzeResults();
+  }
+
+  // Future<File> _getLocalFile() async {
+  //   // Get the app's document directory (safe & persistent)
+  //   final directory = await getApplicationDocumentsDirectory();
+  //   return File('${directory.path}/test_statistics.json');
+  // }
+  // Future<void> saveStatistics(Map<String, dynamic> stats) async {
+  //   final file = await _getLocalFile();
+  //   final jsonString = jsonEncode(stats);
+  //   await file.writeAsString(jsonString);
+  //   print("📂 Saved stats at: ${file.path}");
+  // }
+
+  // Future<Map<String, dynamic>> loadStatistics() async {
+  //   final file = await _getLocalFile();
+  //
+  //   if (await file.exists()) {
+  //     final contents = await file.readAsString();
+  //     return jsonDecode(contents);
+  //   } else {
+  //     return {}; // return empty if file doesn’t exist
+  //   }
+  // }
+  Future<File> zipEyeCapturesFolder() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final saveDir = Directory('${appDir.path}/eye_frames');
+    final zipPath = path.join(appDir.path, 'eye_frames.zip');
+
+    // ✅ Delete old ZIP if it exists
+    final oldZip = File(zipPath);
+    if (await oldZip.exists()) {
+      await oldZip.delete();
+      print('🗑️ Old ZIP deleted at $zipPath');
+    }
+
+    final encoder = ZipFileEncoder();
+    encoder.create(zipPath);
+
+    // ✅ Add all files in eye_captures folder
+    saveDir.listSync().whereType<File>().forEach((file) {
+      encoder.addFile(file);
+    });
+
+    encoder.close();
+    print('📦 New ZIP created at $zipPath');
+
+    return File(zipPath);
+  }
+
+
+  Future<void> uploadFolderAndJson() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final jsonFile = File(path.join(appDir.path, 'sessions.json'));
+    final zipFile = await zipEyeCapturesFolder();
+
+    final uri = Uri.parse("https://4b05a0660d9d.ngrok-free.app/upload");
+    var request = http.MultipartRequest('POST', uri);
+
+    // Add JSON
+    request.files.add(await http.MultipartFile.fromPath(
+      'session',
+      jsonFile.path,
+      contentType: MediaType('application', 'json'),
+    ));
+
+    // Add ZIP
+    request.files.add(await http.MultipartFile.fromPath(
+      'images_zip',
+      zipFile.path,
+      contentType: MediaType('application', 'zip'),
+    ));
+
+    final response = await request.send();
+
+    if (response.statusCode == 200) {
+      print("✅ Upload successful");
+      _fileCleanup();
+    } else {
+      print("❌ Upload failed: ${response.statusCode}");
+    }
+  }
+
+  Future<void> _fileCleanup() async{
+    final appDir = await getApplicationDocumentsDirectory();
+    final jsonFile = File(path.join(appDir.path, 'sessions.json'));
+    final zipFile = File(path.join(appDir.path, 'eye_frames.zip'));
+    final eyeCapture = Directory(path.join(appDir.path, 'eye_captures'));
+    final eyeFrames = Directory(path.join(appDir.path, 'eye_frames'));
+
+    if(await jsonFile.exists() && await zipFile.exists() && await eyeCapture.exists() && await eyeFrames.exists()) {
+      try{
+        await eyeCapture.delete(recursive: true);
+        await eyeFrames.delete(recursive: true);
+        await jsonFile.delete();
+        await zipFile.delete();
+        print("Raw data deleted");
+      }
+      catch(e){
+        print("ERROR: Cannot delete raw data");
+      }
+    }
   }
 
   Future<void> _analyzeResults() async {
@@ -40,6 +158,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
       final currentSession = _sessionManager.getCurrentSession();
       if (currentSession != null) {
         _testDataService.addCompletedSession(currentSession);
+        await SessionStorage.saveSessions([currentSession]);
+        await CameraService().saveAllCapturedImages();
+        final loaded = await SessionStorage.loadSessions();
+        print("Loaded ${loaded.length} sessions");
+        uploadFolderAndJson();
         
         EyeAnalysisResult? eyeAnalysis;
         if (_cameraService.hasCaptures()) {

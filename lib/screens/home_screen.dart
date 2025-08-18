@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'snellen_test_screen.dart';
-import 'amsler_grid_test_screen.dart';
 import 'history_screen.dart';
 import '../widgets/app_header.dart';
 import '../services/test_data_service.dart';
@@ -337,7 +336,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               Icons.check_circle,
               color,
             );
-          }).toList(),
+          }),
           if (recentActivity.isEmpty)
             const Center(
               child: Text(

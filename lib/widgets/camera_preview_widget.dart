@@ -15,8 +15,8 @@ class CameraPreviewWidget extends StatefulWidget {
 }
 
 class _CameraPreviewWidgetState extends State<CameraPreviewWidget> {
-  bool _isRecording = false;
-  List<String> _capturedImages = [];
+  final bool _isRecording = false;
+  final List<String> _capturedImages = [];
   Timer? _captureTimer;
   bool _isCapturing = false;
   
@@ -76,7 +76,7 @@ class _CameraPreviewWidgetState extends State<CameraPreviewWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 120,
       width: double.infinity,
       child: widget.controller.value.isInitialized
