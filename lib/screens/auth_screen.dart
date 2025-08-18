@@ -26,7 +26,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('https://d80cf1f8c8b8.ngrok-free.app/login'),
+        Uri.parse('https://4b05a0660d9d.ngrok-free.app/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': _usernameController.text,

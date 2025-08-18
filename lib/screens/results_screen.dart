@@ -4,7 +4,6 @@ import '../models/test_session.dart';
 import '../services/ml_service.dart';
 import '../services/test_data_service.dart';
 import '../services/camera_service.dart';
-import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
@@ -76,8 +75,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
   // }
   Future<File> zipEyeCapturesFolder() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final saveDir = Directory('${appDir.path}/eye_captures');
-    final zipPath = path.join(appDir.path, 'eye_captures.zip');
+    final saveDir = Directory('${appDir.path}/eye_frames');
+    final zipPath = path.join(appDir.path, 'eye_frames.zip');
 
     // ✅ Delete old ZIP if it exists
     final oldZip = File(zipPath);
@@ -106,7 +105,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final jsonFile = File(path.join(appDir.path, 'sessions.json'));
     final zipFile = await zipEyeCapturesFolder();
 
-    final uri = Uri.parse("https://d80cf1f8c8b8.ngrok-free.app/upload");
+    final uri = Uri.parse("https://4b05a0660d9d.ngrok-free.app/upload");
     var request = http.MultipartRequest('POST', uri);
 
     // Add JSON
@@ -127,8 +126,30 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     if (response.statusCode == 200) {
       print("✅ Upload successful");
+      _fileCleanup();
     } else {
       print("❌ Upload failed: ${response.statusCode}");
+    }
+  }
+
+  Future<void> _fileCleanup() async{
+    final appDir = await getApplicationDocumentsDirectory();
+    final jsonFile = File(path.join(appDir.path, 'sessions.json'));
+    final zipFile = File(path.join(appDir.path, 'eye_frames.zip'));
+    final eyeCapture = Directory(path.join(appDir.path, 'eye_captures'));
+    final eyeFrames = Directory(path.join(appDir.path, 'eye_frames'));
+
+    if(await jsonFile.exists() && await zipFile.exists() && await eyeCapture.exists() && await eyeFrames.exists()) {
+      try{
+        await eyeCapture.delete(recursive: true);
+        await eyeFrames.delete(recursive: true);
+        await jsonFile.delete();
+        await zipFile.delete();
+        print("Raw data deleted");
+      }
+      catch(e){
+        print("ERROR: Cannot delete raw data");
+      }
     }
   }
 

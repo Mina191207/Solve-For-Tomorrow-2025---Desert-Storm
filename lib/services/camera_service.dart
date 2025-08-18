@@ -13,7 +13,7 @@ class CameraService {
   final List<String> _capturedImages = [];
   final List<EyeAnalysisResult> _eyeAnalyses = [];
   bool _isCapturing = false;
-  bool _stopFlag = false;
+  // bool _stopFlag = false;
 
 
   Future<String?> captureEyeImage(CameraController cameraController, {String? testType}) async {
@@ -50,27 +50,24 @@ class CameraService {
 
   Future<void> captureTestSession(CameraController cameraController, String testType) async {
     // Staggered captures during test session
-    // for (int i = 0; i < 3; i++) {
-    //   await Future.delayed(Duration(seconds: 2 + i * 3)); // Stagger captures
-    //   await captureEyeImage(cameraController, testType: testType);
-    // }
-    while(!_stopFlag){
+    for (int i = 0; i < 3; i++) {
+      await Future.delayed(Duration(seconds: 2 + i * 3)); // Stagger captures
       await captureEyeImage(cameraController, testType: testType);
-      await Future.delayed(Duration(seconds: 1));
     }
-  }
-  void stopCaptureSession() {
-    _stopFlag = true;
+  //   while(_stopFlag){
+  //     await captureEyeImage(cameraController, testType: testType);
+  //     await Future.delayed(Duration(seconds: 1));
+  //   }
+  // }
+  // void stopCaptureSession() {
+  //   _stopFlag = true;
   }
 
-  // AGENDA:
-  // 1. fix upload (upload eye_frames)
-  //   1.1. making stop flag for capture
-  // 2. delete files after upload
 
   Future<void> saveAllCapturedImages() async {
     final appDir = await getApplicationDocumentsDirectory();
     final saveDir = Directory('${appDir.path}/eye_captures');
+    // stopCaptureSession();
 
     // Create folder if it doesn't exist
     if (!await saveDir.exists()) {
