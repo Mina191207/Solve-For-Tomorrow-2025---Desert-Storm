@@ -1,0 +1,83 @@
+import cv2
+import tkinter as tk
+import random, time, os, csv
+from datetime import datetime
+
+# ======================
+# Config
+# ======================
+SAVE_DIR = "SFT25/dataset_multi"
+IMG_LEFT = os.path.join(SAVE_DIR, "left")
+IMG_RIGHT = os.path.join(SAVE_DIR, "right")
+IMG_FACE = os.path.join(SAVE_DIR, "face")
+CSV_PATH = os.path.join(SAVE_DIR, "labels.csv")
+
+os.makedirs(IMG_LEFT, exist_ok=True)
+os.makedirs(IMG_RIGHT, exist_ok=True)
+os.makedirs(IMG_FACE, exist_ok=True)
+
+# Nếu chưa có file csv thì tạo header
+if not os.path.exists(CSV_PATH):
+    with open(CSV_PATH, "w", newline="") as f:
+        wr = csv.writer(f)
+        wr.writerow(["fname_left", "fname_right", "fname_face", "gx", "gy"])
+
+# ======================
+# Camera setup
+# ======================
+cap = cv2.VideoCapture(1)  # đổi sang 0 nếu camera laptop
+
+# GUI hiển thị chấm đỏ
+root = tk.Tk()
+root.attributes("-fullscreen", True)
+W, H = root.winfo_screenwidth(), root.winfo_screenheight()
+canvas = tk.Canvas(root, width=W, height=H, bg="black")
+canvas.pack()
+
+def show_dot(x, y):
+    r = 15
+    canvas.delete("all")
+    canvas.create_oval(x-r, y-r, x+r, y+r, fill="red")
+    root.update()
+
+# ======================
+# Loop thu dữ liệu
+# ======================
+NUM_SAMPLES = 50   # số ảnh cần thu
+DELAY = 1.0         # giây nghỉ mỗi lần
+
+with open(CSV_PATH, "a", newline="") as f:
+    wr = csv.writer(f)
+
+    for i in range(NUM_SAMPLES):
+        gx = random.randint(100, W-100)
+        gy = random.randint(100, H-100)
+
+        show_dot(gx, gy)
+        time.sleep(DELAY)
+
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Resize & crop
+        h, w = frame.shape[:2]
+        face = cv2.resize(frame, (128,128))
+        left = cv2.resize(frame[:, :w//2], (64,64))
+        right = cv2.resize(frame[:, w//2:], (64,64))
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        f_left = f"left_{ts}.jpg"
+        f_right = f"right_{ts}.jpg"
+        f_face = f"face_{ts}.jpg"
+
+        cv2.imwrite(os.path.join(IMG_LEFT, f_left), left)
+        cv2.imwrite(os.path.join(IMG_RIGHT, f_right), right)
+        cv2.imwrite(os.path.join(IMG_FACE, f_face), face)
+
+        # Normalized label (0-1)
+        wr.writerow([f_left, f_right, f_face, gx/W, gy/H])
+        print(f"[{i+1}/{NUM_SAMPLES}] Saved {f_face}")
+
+cap.release()
+root.destroy()
