@@ -225,8 +225,8 @@ class AppDrawer extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
-            Text('Email: support@visiontest.com'),
-            Text('Phone: 1-800-VISION'),
+            Text('Email: grillcheesesandwichez@gmail.com'),
+            Text('Phone: 727'),
           ],
         ),
         actions: [

@@ -5,9 +5,9 @@ import '../main.dart';
 import '../widgets/camera_preview_widget.dart';
 import '../models/test_result.dart';
 import '../models/test_session.dart';
+import 'questionnaire_test_screen.dart';
 import '../widgets/app_header.dart';
 import '../services/camera_service.dart';
-import '../screens/questionnaire_test_screen.dart';
 
 class AmslerGridTestScreen extends StatefulWidget {
   const AmslerGridTestScreen({super.key});

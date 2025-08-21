@@ -97,12 +97,12 @@ class AboutScreen extends StatelessWidget {
                     _buildContactItem(
                       icon: Icons.email,
                       title: 'Hỗ trợ Email',
-                      subtitle: 'support@visiontest.com',
+                      subtitle: 'grillcheesesandwichez@gmail.com',
                     ),
                     _buildContactItem(
                       icon: Icons.web,
                       title: 'Trang web',
-                      subtitle: 'www.visiontest.com',
+                      subtitle: 'not available',
                     ),
                     _buildContactItem(
                       icon: Icons.privacy_tip,
