@@ -8,6 +8,7 @@ class TestSession {
   final DateTime startTime;
   List<TestResult> snellenResults = [];
   List<TestResult> amslerResults = [];
+  List<TestResult> questionnaireResults = [];
   List<EyeTrackingData> eyeTrackingData = [];
   
   TestSession({
@@ -21,6 +22,10 @@ class TestSession {
 
   void addAmslerResult(TestResult result) {
     amslerResults.add(result);
+  }
+
+  void addQuestionnaireResult (TestResult result){
+    questionnaireResults.add(result);
   }
 
   void addEyeTrackingData(EyeTrackingData data) {
@@ -42,6 +47,7 @@ class TestSession {
       "startTime": startTime.toIso8601String(),
       "snellenResults": snellenResults.map((r) => r.toJson()).toList(),
       "amslerResults": amslerResults.map((r) => r.toJson()).toList(),
+      "questrionnaireResults": questionnaireResults.map((r) => r.toJson()).toList(),
       "eyeTrackingData": eyeTrackingData.map((e) => e.toJson()).toList(),
     };
   }
@@ -88,6 +94,10 @@ class TestSessionManager {
 
   void addAmslerResult(TestResult result) {
     _currentSession?.addAmslerResult(result);
+  }
+
+  void addQuestionnaireResult (TestResult result){
+    _currentSession?.addQuestionnaireResult(result);
   }
 
   void addEyeTrackingData(EyeTrackingData data) {
