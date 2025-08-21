@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -14,6 +13,8 @@ class CameraService {
   final List<String> _capturedImages = [];
   final List<EyeAnalysisResult> _eyeAnalyses = [];
   bool _isCapturing = false;
+  // bool _stopFlag = false;
+
 
   Future<String?> captureEyeImage(CameraController cameraController, {String? testType}) async {
     if (_isCapturing) return null;
@@ -28,7 +29,7 @@ class CameraService {
 
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final imagePath = path.join(tempDir.path, 'eye_capture_${timestamp}.jpg');
+      final imagePath = path.join(tempDir.path, 'eye_capture_$timestamp.jpg');
 
       final XFile imageFile = await cameraController.takePicture();
       
@@ -53,7 +54,43 @@ class CameraService {
       await Future.delayed(Duration(seconds: 2 + i * 3)); // Stagger captures
       await captureEyeImage(cameraController, testType: testType);
     }
+  //   while(_stopFlag){
+  //     await captureEyeImage(cameraController, testType: testType);
+  //     await Future.delayed(Duration(seconds: 1));
+  //   }
+  // }
+  // void stopCaptureSession() {
+  //   _stopFlag = true;
   }
+
+
+  Future<void> saveAllCapturedImages() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final saveDir = Directory('${appDir.path}/eye_captures');
+    // stopCaptureSession();
+
+    // Create folder if it doesn't exist
+    if (!await saveDir.exists()) {
+      await saveDir.create(recursive: true);
+    }
+
+    for (final imagePath in _capturedImages) {
+      try {
+        final file = File(imagePath);
+        if (await file.exists()) {
+          final fileName = path.basename(imagePath); // keep original name
+          final newPath = path.join(saveDir.path, fileName);
+
+          // Copy file into permanent folder
+          await file.copy(newPath);
+          print('✅ Saved image to: $newPath');
+        }
+      } catch (e) {
+        print('⚠️ Error saving image $imagePath: $e');
+      }
+    }
+  }
+
 
   Future<List<EyeAnalysisResult>> analyzeAllCapturedImages() async {
     final results = <EyeAnalysisResult>[];

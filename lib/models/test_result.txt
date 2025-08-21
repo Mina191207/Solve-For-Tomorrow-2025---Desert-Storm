@@ -1,6 +1,3 @@
-// ======================
-//  DATA MODELS
-// ======================
 
 class TestResult {
   final int line;

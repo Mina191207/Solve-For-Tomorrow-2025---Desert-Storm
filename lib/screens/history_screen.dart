@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/test_result.dart';
 import '../widgets/app_header.dart';
 import '../services/test_data_service.dart';
+// import '../models/json_upload.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -13,6 +14,11 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> with WidgetsBindingObserver {
   List<VisionTestSession> _testSessions = [];
   final TestDataService _testDataService = TestDataService();
+
+  // Future<void> _save(path) async {
+  //   final SessionUploader jsonUploadService = SessionUploader();
+  //   jsonUploadService.uploadFile(path);
+  // }
 
   @override
   void initState() {
@@ -92,7 +98,7 @@ class _HistoryScreenState extends State<HistoryScreen> with WidgetsBindingObserv
         children: [
           _buildStatItem('Tổng số Kiểm tra', totalTests.toString()),
           _buildStatItem('Điểm TB', totalTests > 0 ? '${(averageScore * 100).toInt()}%' : '0%'),
-          _buildStatItem('Rủi ro Thấp', '$lowRiskCount/${totalTests}'),
+          _buildStatItem('Rủi ro Thấp', '$lowRiskCount/$totalTests'),
         ],
       ),
     );
@@ -276,6 +282,7 @@ class _HistoryScreenState extends State<HistoryScreen> with WidgetsBindingObserv
           ),
           TextButton(
             onPressed: () {
+              // _save();
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Chi tiết kiểm tra đã xuất')),

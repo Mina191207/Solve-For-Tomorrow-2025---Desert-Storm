@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../main.dart';
 import '../widgets/camera_preview_widget.dart';
-import '../widgets/snellen_chart_widget.dart';
 import '../models/test_result.dart';
 import '../models/test_session.dart';
 import 'amsler_grid_test_screen.dart';
@@ -23,7 +22,7 @@ class _SnellenTestScreenState extends State<SnellenTestScreen> {
   int _currentLine = 0;
   String _currentLetter = '';
   String _userResponse = '';
-  List<TestResult> _testResults = [];
+  final List<TestResult> _testResults = [];
   DateTime? _testStartTime;
   final TestSessionManager _sessionManager = TestSessionManager();
   final CameraService _cameraService = CameraService();

@@ -4,6 +4,12 @@ import '../models/test_session.dart';
 import '../services/ml_service.dart';
 import '../services/test_data_service.dart';
 import '../services/camera_service.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:archive/archive_io.dart';
+import 'package:path/path.dart' as path;
+import 'package:http_parser/http_parser.dart';
 
 class ResultsScreen extends StatefulWidget {
   final String testType;
@@ -26,13 +32,147 @@ class _ResultsScreenState extends State<ResultsScreen> {
   VisionAnalysisResult? _analysisResult;
   final MLService _mlService = MLService();
   final TestSessionManager _sessionManager = TestSessionManager();
+  final SessionStorage _sessionStorage = SessionStorage();
   final TestDataService _testDataService = TestDataService();
   final CameraService _cameraService = CameraService();
 
   @override
-  void initState() {
+  void initState(){
     super.initState();
+    // final stats = TestDataService().getTestStatistics();
+    // final jsonString = const JsonEncoder.withIndent('  ').convert(stats);
+    // final file = File('test_statistics.json');
+    // file.writeAsString(jsonString);
+    //
+    // print('✅ Statistics saved at: ${file.path}');
+    // saveStatistics(stats);
+    // final loaded = loadStatistics();
+    // print("✅ Loaded: $loaded");
     _analyzeResults();
+  }
+
+  // Future<File> _getLocalFile() async {
+  //   // Get the app's document directory (safe & persistent)
+  //   final directory = await getApplicationDocumentsDirectory();
+  //   return File('${directory.path}/test_statistics.json');
+  // }
+  // Future<void> saveStatistics(Map<String, dynamic> stats) async {
+  //   final file = await _getLocalFile();
+  //   final jsonString = jsonEncode(stats);
+  //   await file.writeAsString(jsonString);
+  //   print("📂 Saved stats at: ${file.path}");
+  // }
+
+  // Future<Map<String, dynamic>> loadStatistics() async {
+  //   final file = await _getLocalFile();
+  //
+  //   if (await file.exists()) {
+  //     final contents = await file.readAsString();
+  //     return jsonDecode(contents);
+  //   } else {
+  //     return {}; // return empty if file doesn’t exist
+  //   }
+  // }
+  String _formattedTimestamp() {
+    final now = DateTime.now();
+    final dd = now.day.toString().padLeft(2, '0');
+    final mm = now.month.toString().padLeft(2, '0');
+    final yyyy = now.year.toString();
+    final hh = now.hour.toString().padLeft(2, '0');
+    final min = now.minute.toString().padLeft(2, '0');
+    final ss = now.second.toString().padLeft(2, '0');
+    return "$dd$mm$yyyy-$hh$min$ss";
+  }
+  Future<File> zipEyeCapturesFolder() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final saveDir = Directory('${appDir.path}/eye_frames');
+
+    final timestamp = _formattedTimestamp();
+    final zipPath = path.join(appDir.path, '${timestamp}_eye_frames.zip');
+
+    // ✅ Delete old ZIP if exists
+    final oldZip = File(zipPath);
+    if (await oldZip.exists()) {
+      await oldZip.delete();
+      print('🗑️ Old ZIP deleted at $zipPath');
+    }
+
+    final encoder = ZipFileEncoder();
+    encoder.create(zipPath);
+
+    // ✅ Add all files in eye_frames folder
+    if (await saveDir.exists()) {
+      saveDir.listSync().whereType<File>().forEach((file) {
+        encoder.addFile(file);
+      });
+    }
+
+    encoder.close();
+    print('📦 New ZIP created at $zipPath');
+
+    return File(zipPath);
+  }
+
+  Future<void> uploadFolderAndJson() async {
+    final appDir = await getApplicationDocumentsDirectory();
+
+    final timestamp = _formattedTimestamp();
+    final jsonPath = path.join(appDir.path, '${timestamp}_sessions.json');
+
+    // copy sessions.json → timestamp_sessions.json
+    final originalJson = File(path.join(appDir.path, 'sessions.json'));
+    if (await originalJson.exists()) {
+      await originalJson.copy(jsonPath);
+    }
+
+    final zipFile = await zipEyeCapturesFolder();
+
+    final uri = Uri.parse("https://4b05a0660d9d.ngrok-free.app/upload");
+    var request = http.MultipartRequest('POST', uri);
+
+    // Add JSON
+    request.files.add(await http.MultipartFile.fromPath(
+      'session',
+      jsonPath,
+      contentType: MediaType('application', 'json'),
+    ));
+
+    // Add ZIP
+    request.files.add(await http.MultipartFile.fromPath(
+      'images_zip',
+      zipFile.path,
+      contentType: MediaType('application', 'zip'),
+    ));
+
+    final response = await request.send();
+
+    if (response.statusCode == 200) {
+      print("✅ Upload successful");
+      _fileCleanup();
+    } else {
+      print("❌ Upload failed: ${response.statusCode}");
+    }
+  }
+
+  Future<void> _fileCleanup() async{
+    final appDir = await getApplicationDocumentsDirectory();
+    final jsonFile = File(path.join(appDir.path, 'sessions.json'));
+    final zipFile = File(path.join(appDir.path, 'eye_frames.zip'));
+    final eyeCapture = Directory(path.join(appDir.path, 'eye_captures'));
+    final eyeFrames = Directory(path.join(appDir.path, 'eye_frames'));
+
+    if(await jsonFile.exists() && await zipFile.exists() && await eyeCapture.exists() && await eyeFrames.exists()) {
+      try{
+        await eyeCapture.delete(recursive: true);
+        await eyeFrames.delete(recursive: true);
+        await jsonFile.delete();
+        await zipFile.delete();
+        print("Raw data deleted");
+      }
+      catch(e){
+        print("ERROR: Cannot delete raw data");
+      }
+    }
   }
 
   Future<void> _analyzeResults() async {
@@ -40,52 +180,70 @@ class _ResultsScreenState extends State<ResultsScreen> {
       final currentSession = _sessionManager.getCurrentSession();
       if (currentSession != null) {
         _testDataService.addCompletedSession(currentSession);
-        
-        EyeAnalysisResult? eyeAnalysis;
-        if (_cameraService.hasCaptures()) {
-          eyeAnalysis = _cameraService.getAggregateAnalysis();
-        }
-        
+        await SessionStorage.saveSessions([currentSession]);
+        await _cameraService.saveAllCapturedImages();
+        uploadFolderAndJson();
+
         final eyeTrackingData = _cameraService.generateEyeTrackingData();
-        
-        _mlService.analyzeVisionTest(
-          widget.testType,
-          widget.testResults,
-          eyeTrackingData,
-        ).then((mlResult) {
-          print('ML Analysis completed (background): ${mlResult.diagnosis}');
-          // Store for future use without displaying
-        }).catchError((error) {
-          print('ML Analysis error (background): $error');
-        });
-        
+
+        // 1. Kết quả từ bài test
         final testBasedResult = _createTestBasedAnalysis();
-        
-        setState(() {
-          _analysisResult = testBasedResult;
-          _isAnalyzing = false;
-        });
-      } else {
-        throw Exception('No current session found');
+
+        // 2. Gọi AI service
+        VisionAnalysisResult? mlResult;
+        try {
+          mlResult = await _mlService.analyzeVisionTest(
+            widget.testType,
+            widget.testResults,
+            eyeTrackingData,
+          );
+          print("✅ ML Analysis: ${mlResult.diagnosis}");
+        } catch (e) {
+          print("❌ ML Analysis failed: $e");
+        }
+
+        // 3. Merge kết quả
+        VisionAnalysisResult finalResult;
+        if (mlResult != null) {
+          finalResult = testBasedResult.copyWith(
+            diagnosis: testBasedResult.diagnosis,
+            aiDiagnosis: mlResult.diagnosis,
+            confidence: mlResult.confidence,
+            eyeAnalysis: mlResult.eyeAnalysis,
+            source: "Combined",
+          );
+        } else {
+          finalResult = testBasedResult.copyWith(source: "Test");
+        }
+
+        if (mounted) {
+          setState(() {
+            _analysisResult = finalResult;
+            _isAnalyzing = false;
+          });
+        }
       }
     } catch (e) {
-      print('Error analyzing results: $e');
-      setState(() {
-        _isAnalyzing = false;
-      });
+      print("Error analyzing results: $e");
+      if (mounted) {
+        setState(() {
+          _isAnalyzing = false;
+        });
+      }
     }
   }
+
 
   VisionAnalysisResult _createTestBasedAnalysis() {
     final correctAnswers = widget.testResults.where((r) => r.isCorrect).length;
     final totalQuestions = widget.testResults.length;
     final accuracy = totalQuestions > 0 ? correctAnswers / totalQuestions : 0.0;
-    
+
     // Determine risk level based on test performance only
     String riskLevel;
     String diagnosis;
     List<String> recommendations;
-    
+
     if (accuracy >= 0.8) {
       riskLevel = 'Low';
       diagnosis = 'Hiệu suất kiểm tra xuất sắc. Thị lực có vẻ hoạt động tốt.';
@@ -114,7 +272,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
         'Cân nhắc các lựa chọn chỉnh sửa thị lực'
       ];
     }
-    
+
     return VisionAnalysisResult(
       visionScore: accuracy,
       riskLevel: riskLevel,
@@ -154,42 +312,52 @@ class _ResultsScreenState extends State<ResultsScreen> {
             style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
+
       ),
     );
   }
 
   Widget _buildResultsWidget() {
-    if (_analysisResult == null) {
-      return const Center(
-        child: Text(
-          'Không thể phân tích kết quả',
-          style: TextStyle(fontSize: 16, color: Colors.red),
-        ),
-      );
-    }
+    final result = _analysisResult;
+    if (result == null) return const SizedBox();
 
-    final result = _analysisResult!;
-    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeader(),
-          const SizedBox(height: 24),
           _buildScoreCard(result),
-          const SizedBox(height: 24),
-          _buildDiagnosisCard(result),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          _buildDiagnosisCard(
+            title: "Chẩn đoán dựa trên bài kiểm tra",
+            diagnosis: result.diagnosis,
+            color: Colors.black,
+          ),
+          const SizedBox(height: 16),
           _buildRecommendationsCard(result),
-          const SizedBox(height: 24),
-          _buildTestDetailsCard(),
+
+          if (result.aiDiagnosis != null) ...[
+            const SizedBox(height: 24),
+            _buildDiagnosisCard(
+              title: "Phân tích AI",
+              diagnosis: result.aiDiagnosis!,
+              color: Colors.blue,
+            ),
+            if (result.eyeAnalysis != null) ...[
+              const SizedBox(height: 16),
+              _buildAIAnalysisCard(result.eyeAnalysis!),
+            ],
+          ],
+
+          // ✅ thêm chỗ này
           const SizedBox(height: 24),
           _buildActionButtons(),
         ],
       ),
     );
   }
+
+
 
   Widget _buildHeader() {
     return Container(
@@ -228,10 +396,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
   }
 
   Widget _buildScoreCard(VisionAnalysisResult result) {
-    Color scoreColor = result.riskLevel == 'Low' 
-        ? Colors.green 
-        : result.riskLevel == 'Medium' 
-            ? Colors.orange 
+    Color scoreColor = result.riskLevel == 'Low'
+        ? Colors.green
+        : result.riskLevel == 'Medium'
+            ? Colors.orange
             : Colors.red;
 
     return Card(
@@ -282,10 +450,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    result.riskLevel == 'Low' 
-                        ? Icons.check_circle 
-                        : result.riskLevel == 'Medium' 
-                            ? Icons.warning 
+                    result.riskLevel == 'Low'
+                        ? Icons.check_circle
+                        : result.riskLevel == 'Medium'
+                            ? Icons.warning
                             : Icons.error,
                     size: 16,
                     color: scoreColor,
@@ -307,7 +475,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Widget _buildDiagnosisCard(VisionAnalysisResult result) {
+  Widget _buildDiagnosisCard({
+    required String title,
+    required String diagnosis,
+    Color color = Colors.black,
+  }) {
     return Card(
       elevation: 4,
       child: Padding(
@@ -315,31 +487,20 @@ class _ResultsScreenState extends State<ResultsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Phân tích Kiểm tra',
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              result.diagnosis,
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.assessment, size: 16, color: Colors.blue),
-                const SizedBox(width: 4),
-                Text(
-                  'Dựa trên hiệu suất kiểm tra',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
+              diagnosis,
+              style: TextStyle(
+                fontSize: 16,
+                color: color,
+              ),
             ),
           ],
         ),
@@ -347,9 +508,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
+
   Widget _buildAIAnalysisCard(EyeAnalysisResult eyeAnalysis) {
-    Color conditionColor = eyeAnalysis.condition == 'normal' 
-        ? Colors.green 
+    Color conditionColor = eyeAnalysis.condition == 'normal'
+        ? Colors.green
         : Colors.orange;
 
     return Card(
@@ -387,8 +549,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
               child: Row(
                 children: [
                   Icon(
-                    eyeAnalysis.condition == 'normal' 
-                        ? Icons.check_circle 
+                    eyeAnalysis.condition == 'normal'
+                        ? Icons.check_circle
                         : Icons.warning,
                     color: conditionColor,
                     size: 20,
