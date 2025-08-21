@@ -1,43 +1,61 @@
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'screens/auth_screen.dart';
-import 'package:firebase_core/firebase_core.dart'; // Don't forget this import!
-import 'firebase_options.dart'; // And this import for your generated options!
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:camera/camera.dart';
+
+import 'firebase_options.dart';
+import 'screens/profile_screen.dart' show ThemeProvider, initNotifications;
+import 'screens/auth_screen.dart';
 import 'screens/main_navigation.dart';
 
+// Global variables
 final FirebaseAuth _auth = FirebaseAuth.instance;
 List<CameraDescription> cameras = [];
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Init cameras
   try {
     cameras = await availableCameras();
   } catch (e) {
-    print('Error initializing cameras: $e');
+    print("Error initializing cameras: $e");
   }
+
+  // Init Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  User? user = FirebaseAuth.instance.currentUser;
+  // Init notifications
+  await initNotifications();
 
-  runApp(VisionTestApp(isLoggedIn: user != null));
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-class VisionTestApp extends StatelessWidget {
-  final bool isLoggedIn;
-  const VisionTestApp({super.key, required this.isLoggedIn});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final user = FirebaseAuth.instance.currentUser;
+
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Ứng dụng Kiểm tra Thị lực',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        fontFamily: 'Roboto',
-      ),
-      home: isLoggedIn ? const MainNavigation() : const AuthScreen(), // Your main screen where authentication happens
+      theme: ThemeData.light(),
+      darkTheme: ThemeData.dark(),
+      themeMode: themeProvider.themeMode,
+      home: user != null ? const MainNavigation() : const AuthScreen(),
     );
   }
 }
-

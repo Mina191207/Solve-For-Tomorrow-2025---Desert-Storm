@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:provider/provider.dart';
 import 'auth_screen.dart';
 
+// ===================== ProfileScreen =====================
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -19,6 +22,7 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ===== Avatar + Info =====
             Center(
               child: Column(
                 children: [
@@ -50,54 +54,70 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 32),
             const Text(
               'Cài đặt',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
+
+            // ===== Settings List =====
             _buildSettingsItem(
               icon: Icons.notifications,
               title: 'Thông báo',
               subtitle: 'Nhắc nhở kiểm tra và cảnh báo',
-              onTap: () {},
+              onTap: () async {
+                await _showTestNotification();
+              },
             ),
             _buildSettingsItem(
               icon: Icons.dark_mode,
               title: 'Chế độ Tối',
               subtitle: 'Chuyển đổi chế độ tối/sáng',
-              onTap: () {},
+              onTap: () {
+                Provider.of<ThemeProvider>(context, listen: false)
+                    .toggleTheme();
+              },
             ),
             _buildSettingsItem(
               icon: Icons.language,
               title: 'Ngôn ngữ',
               subtitle: 'Cài đặt ngôn ngữ ứng dụng',
-              onTap: () {},
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Chức năng Ngôn ngữ chưa được triển khai')),
+                );
+              },
             ),
             _buildSettingsItem(
               icon: Icons.privacy_tip,
               title: 'Riêng tư',
               subtitle: 'Cài đặt riêng tư và dữ liệu',
-              onTap: () {},
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Chức năng Riêng tư chưa được triển khai')),
+                );
+              },
             ),
             _buildSettingsItem(
               icon: Icons.backup,
               title: 'Sao lưu Dữ liệu',
               subtitle: 'Sao lưu kết quả kiểm tra của bạn',
-              onTap: () {},
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Đang sao lưu dữ liệu...')),
+                );
+              },
             ),
+
             const SizedBox(height: 24),
             const Text(
               'Giới thiệu',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
+
             _buildSettingsItem(
               icon: Icons.info,
               title: 'Thông tin Ứng dụng',
@@ -116,7 +136,9 @@ class ProfileScreen extends StatelessWidget {
               subtitle: 'Báo cáo sự cố hoặc đề xuất',
               onTap: () {},
             ),
+
             const SizedBox(height: 32),
+            // ===== Logout Button =====
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -174,8 +196,9 @@ class ProfileScreen extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Đăng xuất thành công')),
               );
-              Navigator.of(context)
-                  .pushReplacement(MaterialPageRoute(builder: (_) => AuthScreen()));
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const AuthScreen()),
+              );
             },
             child: const Text('Đăng xuất'),
           ),
@@ -183,4 +206,50 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// ===================== ThemeProvider =====================
+class ThemeProvider with ChangeNotifier {
+  bool _isDarkMode = false;
+  bool get isDarkMode => _isDarkMode;
+
+  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+
+  void toggleTheme() {
+    _isDarkMode = !_isDarkMode;
+    notifyListeners();
+  }
+}
+
+// ===================== Notifications =====================
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+FlutterLocalNotificationsPlugin();
+
+Future<void> initNotifications() async {
+  const AndroidInitializationSettings initializationSettingsAndroid =
+  AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initializationSettings =
+  InitializationSettings(android: initializationSettingsAndroid);
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+}
+
+Future<void> _showTestNotification() async {
+  const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    'test_channel',
+    'Test Notifications',
+    importance: Importance.high,
+    priority: Priority.high,
+  );
+
+  const NotificationDetails platformDetails =
+  NotificationDetails(android: androidDetails);
+
+  await flutterLocalNotificationsPlugin.show(
+    0,
+    'Thông báo mẫu',
+    'Bạn vừa bật thử chức năng thông báo!',
+    platformDetails,
+  );
 }

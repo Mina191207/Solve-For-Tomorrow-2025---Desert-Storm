@@ -12,12 +12,12 @@ class MLService {
 
   Interpreter? _interpreter;
   bool _isModelLoaded = false;
-  
+
   // Input dimensions and model path
   static const int _inputSize = 224;
   static const int _numChannels = 3;
   static const String _modelPath = 'assets/models/eye_effnet_fp16.tflite';
-  
+
   // Supported eye conditions
   static const List<String> _eyeConditionLabels = [
     'Central Serous Chorioretinopathy [Color Fundus]',
@@ -35,19 +35,19 @@ class MLService {
   Future<void> loadModel() async {
     try {
       print('Loading TensorFlow Lite model...');
-      
+
       final modelData = await rootBundle.load(_modelPath);
       final modelBytes = modelData.buffer.asUint8List();
-      
+
       _interpreter = Interpreter.fromBuffer(modelBytes);
-      
+
       final inputTensors = _interpreter!.getInputTensors();
       final outputTensors = _interpreter!.getOutputTensors();
-      
+
       print('Model loaded successfully');
       print('Input shape: ${inputTensors.first.shape}');
       print('Output shape: ${outputTensors.first.shape}');
-      
+
       _isModelLoaded = true;
     } catch (e) {
       print('Error loading ML model: $e');
@@ -72,19 +72,19 @@ class MLService {
 
       final imageBytes = await imageFile.readAsBytes();
       final image = img.decodeImage(imageBytes);
-      
+
       if (image == null) {
         throw Exception('Failed to decode image');
       }
 
       final preprocessedImage = _preprocessImage(image);
-      
+
       final output = List.filled(_eyeConditionLabels.length, 0.0).reshape([1, _eyeConditionLabels.length]);
       _interpreter!.run(preprocessedImage, output);
-      
+
       final predictions = output[0] as List<double>;
       return _processEyeAnalysisResults(predictions);
-      
+
     } catch (e) {
       print('Error analyzing eye image: $e');
       // Fallback on analysis failure
@@ -118,20 +118,20 @@ class MLService {
   EyeAnalysisResult _processEyeAnalysisResults(List<double> predictions) {
     int maxIndex = 0;
     double maxConfidence = predictions[0];
-    
+
     for (int i = 1; i < predictions.length; i++) {
       if (predictions[i] > maxConfidence) {
         maxConfidence = predictions[i];
         maxIndex = i;
       }
     }
-    
+
     final predictedCondition = _eyeConditionLabels[maxIndex];
     final confidence = maxConfidence;
-    
+
     final riskFactors = _generateRiskFactors(predictedCondition, predictions);
     final recommendations = _generateRecommendations(predictedCondition, confidence);
-    
+
     return EyeAnalysisResult(
       condition: predictedCondition,
       confidence: confidence,
@@ -142,7 +142,7 @@ class MLService {
 
   List<String> _generateRiskFactors(String condition, List<double> predictions) {
     final riskFactors = <String>[];
-    
+
     switch (condition) {
       case 'Central Serous Chorioretinopathy [Color Fundus]':
         riskFactors.addAll([
@@ -211,13 +211,13 @@ class MLService {
         ]);
         break;
     }
-    
+
     return riskFactors;
   }
 
   List<String> _generateRecommendations(String condition, double confidence) {
     final recommendations = <String>[];
-    
+
     if (confidence < 0.6) {
       recommendations.addAll([
         'Image quality may be insufficient for accurate analysis',
@@ -226,7 +226,7 @@ class MLService {
       ]);
       return recommendations;
     }
-    
+
     switch (condition) {
       case 'Central Serous Chorioretinopathy [Color Fundus]':
         recommendations.addAll([
@@ -309,7 +309,7 @@ class MLService {
         ]);
         break;
     }
-    
+
     return recommendations;
   }
 
@@ -328,13 +328,13 @@ class MLService {
         // Simulate analysis for demo - production would use actual images
         eyeAnalysis = await _simulateEyeAnalysis(testResults);
       }
-      
+
       double visionScore = _calculateVisionScore(testResults, testType);
-      
+
       if (eyeAnalysis != null && eyeAnalysis.condition != 'normal') {
         visionScore *= (0.5 + eyeAnalysis.confidence * 0.5);
       }
-      
+
       final riskLevel = _determineRiskLevel(visionScore, eyeAnalysis);
       final diagnosis = _generateDiagnosis(visionScore, eyeAnalysis, testType);
       final recommendations = _generateVisionRecommendations(visionScore, eyeAnalysis);
@@ -364,13 +364,13 @@ class MLService {
 
   Future<EyeAnalysisResult> _simulateEyeAnalysis(List<TestResult> testResults) async {
     // Demo simulation - production uses actual eye image analysis
-    
+
     final correctAnswers = testResults.where((r) => r.isCorrect).length;
     final accuracy = testResults.isNotEmpty ? correctAnswers / testResults.length : 0.5;
-    
+
     String condition;
     double confidence;
-    
+
     if (accuracy > 0.8) {
       condition = 'Healthy';
       confidence = 0.9;
@@ -384,10 +384,10 @@ class MLService {
       condition = 'Glaucoma';
       confidence = 0.7;
     }
-    
+
     final riskFactors = _generateRiskFactors(condition, List.filled(10, 0.1));
     final recommendations = _generateRecommendations(condition, confidence);
-    
+
     return EyeAnalysisResult(
       condition: condition,
       confidence: confidence,
@@ -398,7 +398,7 @@ class MLService {
 
   double _calculateVisionScore(List<TestResult> testResults, String testType) {
     if (testResults.isEmpty) return 0.0;
-    
+
     final correctAnswers = testResults.where((r) => r.isCorrect).length;
     return correctAnswers / testResults.length;
   }
@@ -406,13 +406,13 @@ class MLService {
   String _determineRiskLevel(double visionScore, EyeAnalysisResult? eyeAnalysis) {
     if (eyeAnalysis != null && eyeAnalysis.condition != 'Healthy') {
       // Critical conditions requiring immediate attention
-      if (eyeAnalysis.condition == 'Retinal Detachment' || 
+      if (eyeAnalysis.condition == 'Retinal Detachment' ||
           eyeAnalysis.condition == 'Disc Edema') {
         return 'Emergency';
       }
       return 'High';
     }
-    
+
     if (visionScore >= 0.8) return 'Low';
     if (visionScore >= 0.6) return 'Medium';
     return 'High';
@@ -422,7 +422,7 @@ class MLService {
     if (eyeAnalysis != null && eyeAnalysis.condition != 'Healthy') {
       return 'AI analysis detected possible ${eyeAnalysis.condition}. Professional evaluation recommended.';
     }
-    
+
     if (visionScore >= 0.8) {
       return 'Vision test performance is excellent. No significant issues detected.';
     } else if (visionScore >= 0.6) {
@@ -434,11 +434,11 @@ class MLService {
 
   List<String> _generateVisionRecommendations(double visionScore, EyeAnalysisResult? eyeAnalysis) {
     final recommendations = <String>[];
-    
+
     if (eyeAnalysis != null) {
       recommendations.addAll(eyeAnalysis.recommendations);
     }
-    
+
     if (visionScore < 0.6) {
       recommendations.addAll([
         'Schedule comprehensive eye examination',
@@ -446,7 +446,7 @@ class MLService {
         'Regular monitoring of vision changes'
       ]);
     }
-    
+
     return recommendations.toSet().toList(); // Remove duplicates
   }
 
@@ -460,6 +460,7 @@ class MLService {
 class EyeAnalysisResult {
   final String condition;
   final double confidence;
+
   final List<String> riskFactors;
   final List<String> recommendations;
 
@@ -487,6 +488,8 @@ class VisionAnalysisResult {
   final List<String> recommendations;
   final double confidence;
   final EyeAnalysisResult? eyeAnalysis;
+  final String source;       // "Test", "AI", hoặc "Combined"
+  final String? aiDiagnosis;
 
   VisionAnalysisResult({
     required this.visionScore,
@@ -495,19 +498,34 @@ class VisionAnalysisResult {
     required this.recommendations,
     required this.confidence,
     this.eyeAnalysis,
+    this.source = "Combined",   // mặc định
+    this.aiDiagnosis,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'visionScore': visionScore,
-      'riskLevel': riskLevel,
-      'diagnosis': diagnosis,
-      'recommendations': recommendations,
-      'confidence': confidence,
-      'eyeAnalysis': eyeAnalysis?.toJson(),
-    };
+  /// Update object -> new object
+  VisionAnalysisResult copyWith({
+    double? visionScore,
+    String? riskLevel,
+    String? diagnosis,
+    List<String>? recommendations,
+    double? confidence,
+    EyeAnalysisResult? eyeAnalysis,
+    String? source,
+    String? aiDiagnosis,
+  }) {
+    return VisionAnalysisResult(
+      visionScore: visionScore ?? this.visionScore,
+      riskLevel: riskLevel ?? this.riskLevel,
+      diagnosis: diagnosis ?? this.diagnosis,
+      recommendations: recommendations ?? this.recommendations,
+      confidence: confidence ?? this.confidence,
+      eyeAnalysis: eyeAnalysis ?? this.eyeAnalysis,
+      source: source ?? this.source,
+      aiDiagnosis: aiDiagnosis ?? this.aiDiagnosis,
+    );
   }
 }
+
 
 class EyeTrackingData {
   final DateTime timestamp;

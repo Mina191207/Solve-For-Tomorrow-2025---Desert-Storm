@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
 export "FLUTTER_ROOT=D:\flutter_sdk\flutter"
-export "FLUTTER_APPLICATION_PATH=D:\DesertStorm"
+export "FLUTTER_APPLICATION_PATH=C:\Users\hungh\Downloads\Solve-For-Tomorrow-2025---Desert-Storm-test-server_func"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib\main.dart"
 export "FLUTTER_BUILD_DIR=build"
